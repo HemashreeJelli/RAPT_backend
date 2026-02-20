@@ -27,6 +27,11 @@ def extract_text_from_pdf(file_bytes):
         return text
     except Exception as e:
         raise ValueError(f"Failed to parse PDF: {str(e)}")
+    
+@app.get("/")
+def home():
+    return {"status": "RAPT backend live 🚀"}
+
 
 
 @app.post("/upload-resume")
