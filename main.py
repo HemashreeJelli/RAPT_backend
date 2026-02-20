@@ -28,6 +28,30 @@ def extract_text_from_pdf(file_bytes):
     except Exception as e:
         raise ValueError(f"Failed to parse PDF: {str(e)}")
     
+def analyze_text(raw_text: str):
+
+    skill_groups = {
+        "programming": ["python", "java", "c++", "javascript"],
+        "frontend": ["react", "html", "css"],
+        "backend": ["fastapi", "node", "django"],
+        "ml": ["machine learning", "tensorflow", "pytorch"]
+    }
+
+    text = raw_text.lower()
+    found_skills = []
+    score = 0
+
+    for category, skills in skill_groups.items():
+        for skill in skills:
+            if skill in text:
+                found_skills.append(skill)
+                score += 15
+
+    if len(found_skills) >= 5:
+        score += 20
+
+    return found_skills, score
+    
 @app.get("/")
 def home():
     return {"status": "RAPT backend live 🚀"}
@@ -76,6 +100,35 @@ async def upload_resume(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/analyze-resume/{resume_id}")
+def analyze_resume(resume_id: str):
+
+    # Fetch resume
+    res = supabase.table("resumes").select("*").eq("id", resume_id).execute()
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    raw_text = res.data[0]["raw_text"]
+
+    skills, score = analyze_text(raw_text)
+
+    # Save analysis
+    supabase.table("analysis").insert({
+        "resume_id": resume_id,
+        "score": score,
+        "skills": skills,
+        "missing_skills": [],
+        "feedback_json": {"message": "Basic analysis complete"}
+    }).execute()
+
+    return {
+        "status": "analysis complete",
+        "score": score,
+        "skills": skills
+    }
+
     
 
 
