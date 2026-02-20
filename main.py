@@ -55,6 +55,10 @@ async def upload_resume(file: UploadFile = File(...)):
         # Extract Text
         extracted_text = extract_text_from_pdf(file_bytes)
 
+        print("\n===== PARSED RESUME TEXT =====\n")
+        print(extracted_text[:1000])  # prints first part safely
+        print("\n==============================\n")
+
         # Insert into DB
         supabase.table("resumes").insert({
             "id": file_id,
@@ -72,3 +76,6 @@ async def upload_resume(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+
