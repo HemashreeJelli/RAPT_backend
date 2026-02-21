@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Header
 import fitz
 import uuid
 import os
@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import requests
+
 
 
 load_dotenv()
