@@ -69,9 +69,8 @@ def analyze_text(raw_text: str):
     return found_skills, score
 
 # ---------------- AUTH ---------------- #
-security = HTTPBearer()
 
-JWKS_URL = f"{SUPABASE_URL}/auth/v1/keys"
+security = HTTPBearer()
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
@@ -79,28 +78,12 @@ def get_current_user(
     token = credentials.credentials
 
     try:
-        jwks = requests.get(JWKS_URL).json()
+        user = supabase.auth.get_user(token)
 
-        header = jwt.get_unverified_header(token)
-        kid = header["kid"]
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid user")
 
-        key = None
-        for k in jwks["keys"]:
-            if k["kid"] == kid:
-                key = k
-                break
-
-        if not key:
-            raise HTTPException(status_code=401, detail="Invalid key")
-
-        payload = jwt.decode(
-            token,
-            key,
-            algorithms=["RS256"],   # ⭐ FIXED
-            audience="authenticated",
-        )
-
-        return payload["sub"]   # user_id
+        return user.user.id
 
     except Exception as e:
         print("JWT ERROR:", e)
