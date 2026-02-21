@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Header
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 import fitz
 import uuid
 import os
@@ -6,13 +6,13 @@ from dotenv import load_dotenv
 from supabase import create_client
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import requests
-
-
+from jose import jwt
 
 load_dotenv()
 
 app = FastAPI()
 
+# ---------------- CORS ---------------- #
 from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
@@ -23,6 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ---------------- SUPABASE ---------------- #
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
@@ -31,7 +32,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-
+# ---------------- PDF PARSER ---------------- #
 def extract_text_from_pdf(file_bytes):
     try:
         text = ""
@@ -41,7 +42,8 @@ def extract_text_from_pdf(file_bytes):
         return text
     except Exception as e:
         raise ValueError(f"Failed to parse PDF: {str(e)}")
-    
+
+# ---------------- BASIC ANALYSIS ---------------- #
 def analyze_text(raw_text: str):
 
     skill_groups = {
@@ -66,6 +68,7 @@ def analyze_text(raw_text: str):
 
     return found_skills, score
 
+# ---------------- AUTH ---------------- #
 security = HTTPBearer()
 
 JWKS_URL = f"{SUPABASE_URL}/auth/v1/keys"
@@ -78,27 +81,43 @@ def get_current_user(
     try:
         jwks = requests.get(JWKS_URL).json()
 
+        header = jwt.get_unverified_header(token)
+        kid = header["kid"]
+
+        key = None
+        for k in jwks["keys"]:
+            if k["kid"] == kid:
+                key = k
+                break
+
+        if not key:
+            raise HTTPException(status_code=401, detail="Invalid key")
+
         payload = jwt.decode(
             token,
-            jwks,
-            algorithms=["ES256"],
-            audience="authenticated"
+            key,
+            algorithms=["RS256"],   # ⭐ FIXED
+            audience="authenticated",
         )
 
-        return payload["sub"]
+        return payload["sub"]   # user_id
 
-    except Exception:
+    except Exception as e:
+        print("JWT ERROR:", e)
         raise HTTPException(status_code=401, detail="Invalid token")
-    
+
+# ---------------- ROUTES ---------------- #
+
 @app.get("/")
 def home():
     return {"status": "RAPT backend live 🚀"}
 
-
-
+# ---------- UPLOAD RESUME ---------- #
 @app.post("/upload-resume")
-async def upload_resume(file: UploadFile = File(...),
-    user_id: str = Depends(get_current_user)):
+async def upload_resume(
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user)
+):
 
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="File must be a PDF")
@@ -109,7 +128,7 @@ async def upload_resume(file: UploadFile = File(...),
         file_path = f"{file_id}.pdf"
 
         # Upload to Supabase Storage
-        storage_res = supabase.storage.from_("resumes").upload(
+        supabase.storage.from_("resumes").upload(
             file_path,
             file_bytes,
             {"content-type": "application/pdf"}
@@ -119,13 +138,13 @@ async def upload_resume(file: UploadFile = File(...),
         extracted_text = extract_text_from_pdf(file_bytes)
 
         print("\n===== PARSED RESUME TEXT =====\n")
-        print(extracted_text[:1000])  # prints first part safely
+        print(extracted_text[:1000])
         print("\n==============================\n")
 
         # Insert into DB
         supabase.table("resumes").insert({
             "id": file_id,
-            "user_id": None,
+            "user_id": user_id,   # ⭐ FIXED
             "storage_path": file_path,
             "file_name": file.filename,
             "raw_text": extracted_text
@@ -139,12 +158,14 @@ async def upload_resume(file: UploadFile = File(...),
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-@app.post("/analyze-resume/{resume_id}")
-def analyze_resume(resume_id: str,
-    user_id: str = Depends(get_current_user)):
 
-    # Fetch resume
+# ---------- ANALYZE RESUME ---------- #
+@app.post("/analyze-resume/{resume_id}")
+def analyze_resume(
+    resume_id: str,
+    user_id: str = Depends(get_current_user)
+):
+
     res = supabase.table("resumes").select("*").eq("id", resume_id).execute()
 
     if not res.data:
@@ -154,7 +175,6 @@ def analyze_resume(resume_id: str,
 
     skills, score = analyze_text(raw_text)
 
-    # Save analysis
     supabase.table("analysis").insert({
         "resume_id": resume_id,
         "score": score,
@@ -168,10 +188,3 @@ def analyze_resume(resume_id: str,
         "score": score,
         "skills": skills
     }
-
-
-
-
-    
-
-
