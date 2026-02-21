@@ -4,6 +4,9 @@ import uuid
 import os
 from dotenv import load_dotenv
 from supabase import create_client
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import requests
+
 
 load_dotenv()
 
@@ -69,7 +72,8 @@ def home():
 
 
 @app.post("/upload-resume")
-async def upload_resume(file: UploadFile = File(...)):
+async def upload_resume(file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user)):
 
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="File must be a PDF")
@@ -112,7 +116,8 @@ async def upload_resume(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.post("/analyze-resume/{resume_id}")
-def analyze_resume(resume_id: str):
+def analyze_resume(resume_id: str,
+    user_id: str = Depends(get_current_user)):
 
     # Fetch resume
     res = supabase.table("resumes").select("*").eq("id", resume_id).execute()
@@ -138,6 +143,31 @@ def analyze_resume(resume_id: str):
         "score": score,
         "skills": skills
     }
+
+security = HTTPBearer()
+
+JWKS_URL = f"{SUPABASE_URL}/auth/v1/keys"
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
+
+    try:
+        jwks = requests.get(JWKS_URL).json()
+
+        payload = jwt.decode(
+            token,
+            jwks,
+            algorithms=["ES256"],
+            audience="authenticated"
+        )
+
+        return payload["sub"]
+
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 
     
 
