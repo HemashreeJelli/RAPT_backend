@@ -65,6 +65,30 @@ def analyze_text(raw_text: str):
         score += 20
 
     return found_skills, score
+
+security = HTTPBearer()
+
+JWKS_URL = f"{SUPABASE_URL}/auth/v1/keys"
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
+
+    try:
+        jwks = requests.get(JWKS_URL).json()
+
+        payload = jwt.decode(
+            token,
+            jwks,
+            algorithms=["ES256"],
+            audience="authenticated"
+        )
+
+        return payload["sub"]
+
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
     
 @app.get("/")
 def home():
@@ -145,29 +169,7 @@ def analyze_resume(resume_id: str,
         "skills": skills
     }
 
-security = HTTPBearer()
 
-JWKS_URL = f"{SUPABASE_URL}/auth/v1/keys"
-
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
-    token = credentials.credentials
-
-    try:
-        jwks = requests.get(JWKS_URL).json()
-
-        payload = jwt.decode(
-            token,
-            jwks,
-            algorithms=["ES256"],
-            audience="authenticated"
-        )
-
-        return payload["sub"]
-
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
 
 
     
