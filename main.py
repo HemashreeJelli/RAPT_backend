@@ -149,7 +149,7 @@ def analyze_resume(
     user_id: str = Depends(get_current_user)
 ):
 
-    res = supabase.table("resumes").select("*").eq("id", resume_id).execute()
+    res = supabase.table("resumes").select("*").eq("id", resume_id).eq("user_id", user_id).execute()
 
     if not res.data:
         raise HTTPException(status_code=404, detail="Resume not found")
@@ -171,3 +171,34 @@ def analyze_resume(
         "score": score,
         "skills": skills
     }
+
+@app.get("/profile")
+def get_profile(user_id: str = Depends(get_current_user)):
+    res = supabase.table("profiles").select("*").eq("id", user_id).execute()
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    return res.data[0]
+
+@app.get("/my-resumes")
+def get_my_resumes(user_id: str = Depends(get_current_user)):
+
+    res = supabase.table("resumes") \
+        .select("*, analysis(*)") \
+        .eq("user_id", user_id) \
+        .order("created_at", desc=True) \
+        .execute()
+
+    return res.data
+
+@app.patch("/profile")
+def update_profile(data: dict,
+    user_id: str = Depends(get_current_user)):
+
+    res = supabase.table("profiles") \
+        .update(data) \
+        .eq("id", user_id) \
+        .execute()
+
+    return res.data
