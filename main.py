@@ -7,6 +7,7 @@ from supabase import create_client
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import requests
 from jose import jwt
+from services.analysis_engine import run_analysis_for_rapt
 
 load_dotenv()
 
@@ -156,20 +157,23 @@ def analyze_resume(
 
     raw_text = res.data[0]["raw_text"]
 
-    skills, score = analyze_text(raw_text)
+    # ⭐ NEW AI ENGINE
+    analysis = run_analysis_for_rapt(raw_text)
 
     supabase.table("analysis").insert({
         "resume_id": resume_id,
-        "score": score,
-        "skills": skills,
-        "missing_skills": [],
-        "feedback_json": {"message": "Basic analysis complete"}
+        "score": analysis["score"],
+        "skills": analysis["skills"],
+        "missing_skills": analysis["missing_skills"],
+        "feedback_json": analysis["feedback_json"],
+        "model_version": analysis["model_version"]
     }).execute()
 
     return {
         "status": "analysis complete",
-        "score": score,
-        "skills": skills
+        "score": analysis["score"],
+        "skills": analysis["skills"],
+        "feedback": analysis["feedback_json"]
     }
 
 @app.get("/profile")
