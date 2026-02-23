@@ -170,6 +170,7 @@ def analyze_resume(
     }).execute()
 
     return {
+        "resume_id": resume_id,
         "status": "analysis complete",
         "score": analysis["score"],
         "skills": analysis["skills"],
