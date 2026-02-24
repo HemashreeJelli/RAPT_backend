@@ -177,6 +177,26 @@ def analyze_resume(
         "feedback": analysis["feedback_json"]
     }
 
+@app.get("/analysis/{resume_id}")
+def get_analysis(
+    resume_id: str,
+    user_id: str = Depends(get_current_user)
+):
+
+    res = (
+        supabase
+        .table("analysis")
+        .select("*")
+        .eq("resume_id", resume_id)
+        .execute()
+    )
+
+    if not res.data:
+        return None
+
+    # return latest analysis
+    return res.data[0]
+
 @app.get("/profile")
 def get_profile(user_id: str = Depends(get_current_user)):
     res = supabase.table("profiles").select("*").eq("id", user_id).execute()
