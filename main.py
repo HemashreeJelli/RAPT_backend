@@ -160,6 +160,27 @@ def analyze_resume(
     # ⭐ NEW AI ENGINE
     analysis = run_analysis_for_rapt(raw_text)
 
+    # 🚀 Trigger resume embedding worker
+    try:
+        requests.post(
+            "https://uooknnnadspehbbmeudx.supabase.co/functions/v1/generate-resume-embedding",
+            headers={
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "apikey": SUPABASE_KEY,
+                "Content-Type": "application/json"
+            },
+            json={
+                "resume_id": resume_id,
+                "skills": analysis["skills"],
+                "feedback": analysis["feedback_json"],
+                "score": analysis["score"]
+            },
+            timeout=10
+        )
+        print(f"🚀 Resume embedding triggered for {resume_id}")
+    except Exception as e:
+        print("❌ Resume embedding trigger failed:", e)
+
     supabase.table("analysis").insert({
         "resume_id": resume_id,
         "score": analysis["score"],
