@@ -150,19 +150,37 @@ def analyze_resume(
     user_id: str = Depends(get_current_user)
 ):
 
-    res = supabase.table("resumes").select("*").eq("id", resume_id).eq("user_id", user_id).execute()
+    # 🔎 Fetch resume
+    res = (
+        supabase
+        .table("resumes")
+        .select("*")
+        .eq("id", resume_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
 
     if not res.data:
         raise HTTPException(status_code=404, detail="Resume not found")
 
     raw_text = res.data[0]["raw_text"]
 
-    # ⭐ NEW AI ENGINE
+    # ⭐ Run AI analysis engine
     analysis = run_analysis_for_rapt(raw_text)
 
-    # 🚀 Trigger resume embedding worker
+    # 💾 Save analysis FIRST (important)
+    supabase.table("analysis").insert({
+        "resume_id": resume_id,
+        "score": analysis["score"],
+        "skills": analysis["skills"],
+        "missing_skills": analysis["missing_skills"],
+        "feedback_json": analysis["feedback_json"],
+        "model_version": analysis["model_version"]
+    }).execute()
+
+    # 🚀 Trigger resume embedding Edge Function
     try:
-        requests.post(
+        r = requests.post(
             "https://uooknnnadspehbbmeudx.supabase.co/functions/v1/generate-resume-embedding",
             headers={
                 "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -177,19 +195,15 @@ def analyze_resume(
             },
             timeout=10
         )
-        print(f"🚀 Resume embedding triggered for {resume_id}")
+
+        print("🚀 Resume embedding triggered")
+        print("RESUME EDGE STATUS:", r.status_code)
+        print("RESUME EDGE RESPONSE:", r.text)
+
     except Exception as e:
         print("❌ Resume embedding trigger failed:", e)
 
-    supabase.table("analysis").insert({
-        "resume_id": resume_id,
-        "score": analysis["score"],
-        "skills": analysis["skills"],
-        "missing_skills": analysis["missing_skills"],
-        "feedback_json": analysis["feedback_json"],
-        "model_version": analysis["model_version"]
-    }).execute()
-
+    # ✅ Return response
     return {
         "resume_id": resume_id,
         "status": "analysis complete",
