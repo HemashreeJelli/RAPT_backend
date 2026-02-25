@@ -274,7 +274,7 @@ def create_job(
     # 🚀 Trigger Edge Function to generate embedding
     try:
         requests.post(
-            "https://uooknnnadspehbbmeudx.functions.supabase.co/generate-embedding",
+            "https://uooknnnadspehbbmeudx.supabase.co/functions/v1/generate-embedding",
             json={
                 "job_id": job_id,
                 "description": job["description"]
