@@ -230,11 +230,15 @@ def update_profile(data: dict,
 
 # ---------- CREATE JOB (RECRUITER ONLY) ---------- #
 
-from ml_models.ai_matcher import matcher
-
 # ---------- BACKGROUND EMBEDDING WORKER ---------- #
 def generate_job_embedding(job_id: str, description: str):
+
     try:
+        print("🧠 Loading model for background embedding...")
+
+        # ✅ Lazy import (VERY IMPORTANT)
+        from ml_models.ai_matcher import matcher
+
         embedding = matcher.get_embedding(description).tolist()
 
         supabase.table("jobs") \
