@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends,  BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 import fitz
 import uuid
 import os
@@ -231,34 +231,15 @@ def update_profile(data: dict,
 # ---------- CREATE JOB (RECRUITER ONLY) ---------- #
 
 # ---------- BACKGROUND EMBEDDING WORKER ---------- #
-def generate_job_embedding(job_id: str, description: str):
 
-    try:
-        print("🧠 Loading model for background embedding...")
-
-        # ✅ Lazy import (VERY IMPORTANT)
-        from ml_models.ai_matcher import matcher
-
-        embedding = matcher.get_embedding(description).tolist()
-
-        supabase.table("jobs") \
-            .update({"embedding": embedding}) \
-            .eq("id", job_id) \
-            .execute()
-
-        print(f"✅ Embedding generated for job {job_id}")
-
-    except Exception as e:
-        print("❌ Embedding generation failed:", e)
 
 @app.post("/jobs/create")
 def create_job(
     job: dict,
-    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user)
 ):
 
-    # 🔐 Check recruiter role
+    # 🔐 recruiter check
     profile = supabase.table("profiles") \
         .select("role") \
         .eq("id", user_id) \
@@ -270,22 +251,16 @@ def create_job(
 
     company_id = job.get("company_id")
 
-    # 🏢 Create company if needed
+    # create company if missing
     if not company_id:
-
-        company_name = job.get("company_name")
-        if not company_name:
-            raise HTTPException(status_code=400, detail="company_id or company_name required")
-
         company_insert = supabase.table("companies").insert({
-            "name": company_name,
+            "name": job.get("company_name"),
             "website": job.get("company_website"),
             "industry": job.get("company_industry")
         }).execute()
 
         company_id = company_insert.data[0]["id"]
 
-    # 💾 Insert job FIRST (no embedding yet)
     res = supabase.table("jobs").insert({
         "company_id": company_id,
         "title": job["title"],
@@ -293,17 +268,8 @@ def create_job(
         "requirements": job.get("requirements", [])
     }).execute()
 
-    job_id = res.data[0]["id"]
-
-    # 🚀 Async embedding
-    background_tasks.add_task(
-        generate_job_embedding,
-        job_id,
-        job["description"]
-    )
-
     return {
         "status": "success",
-        "message": "Job created. Embedding generating in background.",
+        "message": "Job created. Embedding handled by Edge Function.",
         "data": res.data
     }
