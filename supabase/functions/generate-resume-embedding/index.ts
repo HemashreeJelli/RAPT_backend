@@ -5,21 +5,19 @@ serve(async (req) => {
     const { resume_id, skills, feedback, score } = await req.json();
 
     if (!resume_id) {
-      return new Response(JSON.stringify({ error: "Missing resume_id" }), {
-        status: 400,
-      });
+      throw new Error("Missing resume_id");
     }
 
-    // ⭐ Build structured embedding text
+    // ⭐ Build embedding text
     const text = `
-Resume Skills: ${(skills || []).join(", ")}
+Skills: ${(skills || []).join(", ")}
 Feedback: ${JSON.stringify(feedback || {})}
 Score: ${score || 0}
 `;
 
-    // 🔥 Call Supabase gte-small embeddings
+    // 🔥 Correct Supabase AI endpoint
     const embedRes = await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/ai/embeddings`,
+      "https://api.supabase.com/ai/v1/embeddings",
       {
         method: "POST",
         headers: {
@@ -34,6 +32,11 @@ Score: ${score || 0}
     );
 
     const embedData = await embedRes.json();
+
+    if (!embedData?.data?.[0]?.embedding) {
+      throw new Error("Embedding generation failed");
+    }
+
     const embedding = embedData.data[0].embedding;
 
     // ⭐ Update resumes table
@@ -57,9 +60,6 @@ Score: ${score || 0}
 
   } catch (err) {
     console.log("EDGE ERROR:", err);
-
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-    });
+    return new Response(err.message, { status: 500 });
   }
 });
