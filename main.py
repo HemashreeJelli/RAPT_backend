@@ -273,15 +273,26 @@ def create_job(
 
     # 🚀 Trigger Edge Function to generate embedding
     try:
-        requests.post(
+        r = requests.post(
             "https://uooknnnadspehbbmeudx.supabase.co/functions/v1/generate-embedding",
+            headers={
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "apikey": SUPABASE_KEY,
+                "Content-Type": "application/json"
+            },
             json={
                 "job_id": job_id,
                 "description": job["description"]
             },
-            timeout=5
+            timeout=10
         )
-        print(f"🚀 Edge embedding triggered for job {job_id}")
+
+        print("EDGE STATUS:", r.status_code)
+        print("EDGE RESPONSE:", r.text)
+
+        if r.status_code != 200:
+            print("⚠️ Edge function returned non-200")
+
     except Exception as e:
         print("❌ Failed to trigger embedding:", e)
 
