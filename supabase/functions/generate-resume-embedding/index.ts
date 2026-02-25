@@ -15,9 +15,9 @@ Feedback: ${JSON.stringify(feedback || {})}
 Score: ${score || 0}
 `;
 
-    // 🔥 Correct Supabase AI endpoint
+    // 🔥 Call Supabase AI (correct internal endpoint)
     const embedRes = await fetch(
-      "https://api.supabase.com/ai/v1/embeddings",
+      `${Deno.env.get("SUPABASE_URL")}/functions/v1/embed`,
       {
         method: "POST",
         headers: {
@@ -33,8 +33,10 @@ Score: ${score || 0}
 
     const embedData = await embedRes.json();
 
-    if (!embedData?.data?.[0]?.embedding) {
-      throw new Error("Embedding generation failed");
+    console.log("EMBED RESPONSE:", embedData);
+
+    if (!embedData?.data || !embedData.data.length) {
+      throw new Error("Embedding API returned invalid response");
     }
 
     const embedding = embedData.data[0].embedding;
