@@ -251,7 +251,7 @@ def create_job(
 
     company_id = job.get("company_id")
 
-    # create company if missing
+    # 🏢 create company if missing
     if not company_id:
         company_insert = supabase.table("companies").insert({
             "name": job.get("company_name"),
@@ -261,6 +261,7 @@ def create_job(
 
         company_id = company_insert.data[0]["id"]
 
+    # 💾 Insert job FIRST (without embedding)
     res = supabase.table("jobs").insert({
         "company_id": company_id,
         "title": job["title"],
@@ -268,8 +269,24 @@ def create_job(
         "requirements": job.get("requirements", [])
     }).execute()
 
+    job_id = res.data[0]["id"]
+
+    # 🚀 Trigger Edge Function to generate embedding
+    try:
+        requests.post(
+            "https://uooknnnadspehbbmeudx.functions.supabase.co/generate-embedding",
+            json={
+                "job_id": job_id,
+                "description": job["description"]
+            },
+            timeout=5
+        )
+        print(f"🚀 Edge embedding triggered for job {job_id}")
+    except Exception as e:
+        print("❌ Failed to trigger embedding:", e)
+
     return {
         "status": "success",
-        "message": "Job created. Embedding handled by Edge Function.",
+        "message": "Job created. Embedding generating via Edge Function.",
         "data": res.data
     }
