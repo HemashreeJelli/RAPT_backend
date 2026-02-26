@@ -343,7 +343,9 @@ def get_recommended_jobs(
     user_id: str = Depends(get_current_user)
 ):
 
-    # 🔎 Get resume + embedding
+    # ===============================
+    # 1️⃣ Get resume + embedding
+    # ===============================
     resume_res = (
         supabase
         .table("resumes")
@@ -365,7 +367,9 @@ def get_recommended_jobs(
             detail="Resume embedding not generated yet"
         )
 
-    # 🧠 Call pgvector matcher
+    # ===============================
+    # 2️⃣ Vector match
+    # ===============================
     match_res = supabase.rpc(
         "match_jobs",
         {
@@ -378,11 +382,13 @@ def get_recommended_jobs(
     if not match_res.data:
         return []
 
-    # 🔥 fetch resume skills
+    # ===============================
+    # 3️⃣ Fetch resume analysis
+    # ===============================
     resume_analysis = (
         supabase
         .table("analysis")
-        .select("skills")
+        .select("skills, score")
         .eq("resume_id", resume_id)
         .order("created_at", desc=True)
         .limit(1)
@@ -390,10 +396,17 @@ def get_recommended_jobs(
     )
 
     resume_skills = []
+    ats_score = 0
+
     if resume_analysis.data:
         resume_skills = resume_analysis.data[0]["skills"] or []
+        ats_score = resume_analysis.data[0]["score"] or 0
 
-    # 🔥 fetch full job data
+    ats_norm = ats_score / 100  # normalize ATS
+
+    # ===============================
+    # 4️⃣ Fetch full job info
+    # ===============================
     job_ids = [job["id"] for job in match_res.data]
 
     jobs_full = (
@@ -404,17 +417,43 @@ def get_recommended_jobs(
         .execute()
     )
 
-    # 🔥 build explanation response
     recommended = []
 
     for job in jobs_full.data:
 
         job_skills = job.get("requirements", []) or []
 
+        # ------------------------------
+        # 🧠 Skill overlap score
+        # ------------------------------
         matched = [
             s for s in job_skills
             if s.lower() in [r.lower() for r in resume_skills]
         ]
+
+        overlap_ratio = (
+            len(matched) / len(job_skills)
+            if job_skills else 0
+        )
+
+        # ------------------------------
+        # 🧠 Get embedding similarity
+        # ------------------------------
+        similarity = next(
+            (m["similarity"] for m in match_res.data if m["id"] == job["id"]),
+            0.8
+        )
+
+        embedding_score = (1 - similarity)
+
+        # ------------------------------
+        # ⭐ HYBRID SCORE
+        # ------------------------------
+        hybrid_score = (
+            embedding_score * 0.7 +
+            overlap_ratio * 0.2 +
+            ats_norm * 0.1
+        )
 
         explanation = None
         if matched:
@@ -423,18 +462,20 @@ def get_recommended_jobs(
                 f"{', '.join(matched[:3])}"
             )
 
-        # ⭐ find similarity from match_res
-        similarity = next(
-            (m["similarity"] for m in match_res.data if m["id"] == job["id"]),
-            0.5
-        )
-
         recommended.append({
             "id": job["id"],
             "title": job["title"],
             "company": job["companies"]["name"] if job.get("companies") else "",
-            "match_score": round((1 - similarity) * 100),
+            "match_score": round(hybrid_score * 100),
             "explanation": explanation
         })
+
+    # ===============================
+    # ⭐ SORT BY HYBRID SCORE
+    # ===============================
+    recommended.sort(
+        key=lambda x: x["match_score"],
+        reverse=True
+    )
 
     return recommended
