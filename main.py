@@ -537,3 +537,16 @@ def get_all_jobs(user_id: str = Depends(get_current_user)):
     )
 
     return res.data
+
+@app.get("/my-applications")
+def get_my_applications(user_id: str = Depends(get_current_user)):
+
+    res = (
+        supabase.table("applications")
+        .select("*, jobs(*, companies(*))")
+        .eq("user_id", user_id)
+        .order("applied_at", desc=True)
+        .execute()
+    )
+
+    return res.data
