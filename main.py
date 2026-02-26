@@ -336,3 +336,57 @@ def create_job(
         "message": "Job created. Embedding generating via Edge Function.",
         "data": res.data
     }
+
+@app.get("/recommended-jobs/{resume_id}")
+def get_recommended_jobs(
+    resume_id: str,
+    user_id: str = Depends(get_current_user)
+):
+
+    # 🔎 Get resume + embedding
+    resume_res = (
+        supabase
+        .table("resumes")
+        .select("id, user_id, embedding")
+        .eq("id", resume_id)
+        .eq("user_id", user_id)
+        .single()
+        .execute()
+    )
+
+    if not resume_res.data:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    embedding = resume_res.data.get("embedding")
+
+    if not embedding:
+        raise HTTPException(
+            status_code=400,
+            detail="Resume embedding not generated yet"
+        )
+
+    # 🧠 Call pgvector matcher
+    match_res = supabase.rpc(
+        "match_jobs",
+        {
+            "query_embedding": embedding,
+            "match_threshold": 0.3,  # adjust later
+            "match_count": 10
+        }
+    ).execute()
+
+    if not match_res.data:
+        return []
+
+    # 🔥 OPTIONAL: Join company info
+    job_ids = [job["id"] for job in match_res.data]
+
+    jobs_full = (
+        supabase
+        .table("jobs")
+        .select("*, companies(*)")
+        .in_("id", job_ids)
+        .execute()
+    )
+
+    return jobs_full.data
