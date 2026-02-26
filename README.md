@@ -1,30 +1,30 @@
-# 🏗️ Backend Architecture
+# 🚀 RAPT: Resume Analysis & Placement Tracker
 
-The backend is engineered as a distributed system designed to handle intensive AI processing while maintaining high availability and low latency.
+RAPT is a sophisticated AI-powered recruitment platform designed to bridge the gap between job descriptions and candidate resumes. By utilizing **semantic search** and **high-dimensional vector embeddings**, RAPT ensures that recruiters find the best talent based on actual skill relevance rather than just keyword matching.
 
-## 1. API Orchestration (FastAPI)
+## 🏗️ Backend Architecture
 
-The central command center is built with **FastAPI (Python)** and hosted on **Render**. It acts as the primary gateway for all client interactions.
+The backend is built as a distributed system to handle heavy AI processing while maintaining high availability.
 
-* **Role-Based Access Control (RBAC):** Implements strict security protocols to restrict sensitive actions, such as job creation and candidate sourcing, exclusively to verified recruiter accounts.
-* **Service Coordination:** Orchestrates the data flow between the primary relational database and specialized serverless AI functions.
-* **Request Validation:** Leverages **Pydantic** for rigorous schema enforcement, ensuring all incoming payloads (resumes and job descriptions) are sanitized and structured correctly before downstream processing.
+### 1. API Orchestration (FastAPI)
 
----
+The central command center is built with **FastAPI** (Python) and hosted on **Render**.
 
-## 2. Semantic Engine (Supabase Edge Functions)
+* **Role-Based Access Control (RBAC):** Restricts sensitive actions, such as job creation, specifically to verified recruiters.
+* **Service Coordination:** Manages the flow of data between the primary database and serverless AI functions.
+* **Request Validation:** Uses Pydantic to ensure all incoming data (resumes and jobs) is structured correctly before processing.
 
-To optimize resource allocation and minimize cold starts, RAPT offloads computationally heavy AI tasks to the network edge.
+### 2. Semantic Engine (Supabase Edge Functions)
 
-* **GTE-Small Model:** Utilizes a high-performance, lightweight transformer model to perform text-to-vector embeddings.
-* **Self-Attention Mechanism:** The engine analyzes contextual relationships within the text—for instance, accurately distinguishing "Python" the programming language from "Python" the biological entity.
-* **384-Dimensional Vectors:** Every document is transformed into a high-dimensional vector space, represented by 384 unique numerical coordinates that capture the "latent meaning" of the content.
+To optimize resources, RAPT offloads intensive AI math to the **Edge**.
 
----
+* **GTE-Small Model:** Uses a lightweight but powerful transformer model to turn text into math.
+* **Self-Attention Math:** The engine analyzes the context of words (e.g., distinguishing "Python" the language from "Python" the snake) to ensure accuracy.
+* **384-Dimensional Vectors:** Every job and resume is converted into a list of 384 unique numbers representing its "meaning".
 
-## 3. Vector Database (PostgreSQL + pgvector)
+### 3. Vector Database (PostgreSQL + pgvector)
 
-Persistent storage and similarity searches are handled within **Supabase** using the **PostgreSQL** ecosystem.
+Data is stored securely in **Supabase** using **PostgreSQL**.
 
-* **Semantic Matching:** Moving beyond legacy keyword searches, the system utilizes **Cosine Similarity** math to calculate the distance between vectors. This identifies the best candidates based on the "closeness" of their skills to a job's specific requirements.
-* **Hybrid Storage Architecture:** A unified system that manages both structured relational data (user profiles, company metadata) and unstructured vector data, allowing for complex, multi-attribute queries in a single database call.
+* **Semantic Matching:** Instead of simple word searches, the database calculates **Cosine Similarity** to find the mathematical distance between a candidate's skills and a job's requirements.
+* **Hybrid Storage:** Manages both relational data (user profiles, company info) and unstructured vector data in a single unified system.
