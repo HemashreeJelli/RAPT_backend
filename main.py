@@ -550,3 +550,28 @@ def get_my_applications(user_id: str = Depends(get_current_user)):
     )
 
     return res.data
+
+@app.get("/recruiter/applicants/{job_id}")
+def get_applicants(
+    job_id: str,
+    user_id: str = Depends(get_current_user)
+):
+
+    # 🔐 verify recruiter
+    profile = supabase.table("profiles") \
+        .select("role") \
+        .eq("id", user_id) \
+        .single() \
+        .execute()
+
+    if profile.data["role"] != "recruiter":
+        raise HTTPException(status_code=403, detail="Not recruiter")
+
+    res = (
+        supabase.table("applications")
+        .select("*, resumes(*), profiles(*), jobs(*, companies(*))")
+        .eq("job_id", job_id)
+        .execute()
+    )
+
+    return res.data
