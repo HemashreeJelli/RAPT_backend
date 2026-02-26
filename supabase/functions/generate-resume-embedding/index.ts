@@ -1,68 +1,56 @@
-import { serve } from "https://deno.land/std/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "jsr:@supabase/supabase-js@2"
+
+// 🔥 SAME AI ENGINE YOU USED FOR JOBS
+const model = new Supabase.ai.Session("gte-small")
 
 serve(async (req) => {
   try {
-    const { resume_id, skills, feedback, score } = await req.json();
+    const { resume_id, skills, feedback, score } = await req.json()
 
     if (!resume_id) {
-      throw new Error("Missing resume_id");
+      return new Response("Missing resume_id", { status: 400 })
     }
 
-    // ⭐ Build embedding text
+    // 🧠 Build structured embedding text
     const text = `
 Skills: ${(skills || []).join(", ")}
 Feedback: ${JSON.stringify(feedback || {})}
 Score: ${score || 0}
-`;
+`
 
-    // ⭐ Generate embedding using Supabase SQL AI
-    const embedRes = await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/rest/v1/rpc/ai_embed`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gte-small",
-          input: text,
-        }),
-      }
-    );
+    // 🧠 Generate embedding (SAME as jobs)
+    const result = await model.run(text, {
+      mean_pool: true,
+      normalize: true,
+    })
 
-    const embedData = await embedRes.json();
+    // ⭐ Convert TypedArray → Array
+    const embedding = Array.from(result)
 
-    console.log("EMBED RESPONSE:", embedData);
-
-    if (!embedData || !embedData.embedding) {
-      throw new Error("Embedding API returned invalid response");
-    }
-
-    const embedding = embedData.embedding;
+    // 🔐 Service role client
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    )
 
     // ⭐ Update resumes table
-    await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/rest/v1/resumes?id=eq.${resume_id}`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
-          "Content-Type": "application/json",
-          Prefer: "return=minimal",
-        },
-        body: JSON.stringify({
-          embedding: embedding,
-        }),
-      }
-    );
+    const { error } = await supabase
+      .from("resumes")
+      .update({ embedding })
+      .eq("id", resume_id)
 
-    return new Response(JSON.stringify({ success: true }), { status: 200 });
+    if (error) throw error
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { "Content-Type": "application/json" },
+    })
 
   } catch (err) {
-    console.log("EDGE ERROR:", err);
-    return new Response(err.message, { status: 500 });
+    console.error("EDGE ERROR:", err)
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500 }
+    )
   }
-});
+})
