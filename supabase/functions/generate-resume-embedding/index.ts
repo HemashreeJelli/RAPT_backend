@@ -15,13 +15,14 @@ Feedback: ${JSON.stringify(feedback || {})}
 Score: ${score || 0}
 `;
 
-    // 🔥 Call Supabase AI (correct internal endpoint)
+    // ⭐ Generate embedding using Supabase SQL AI
     const embedRes = await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/functions/v1/embed`,
+      `${Deno.env.get("SUPABASE_URL")}/rest/v1/rpc/ai_embed`,
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -35,11 +36,11 @@ Score: ${score || 0}
 
     console.log("EMBED RESPONSE:", embedData);
 
-    if (!embedData?.data || !embedData.data.length) {
+    if (!embedData || !embedData.embedding) {
       throw new Error("Embedding API returned invalid response");
     }
 
-    const embedding = embedData.data[0].embedding;
+    const embedding = embedData.embedding;
 
     // ⭐ Update resumes table
     await fetch(
