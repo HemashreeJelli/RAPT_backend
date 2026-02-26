@@ -370,7 +370,7 @@ def get_recommended_jobs(
         "match_jobs",
         {
             "query_embedding": embedding,
-            "match_threshold": 0.3,  # adjust later
+            "match_threshold": 0.3,
             "match_count": 10
         }
     ).execute()
@@ -378,7 +378,22 @@ def get_recommended_jobs(
     if not match_res.data:
         return []
 
-    # 🔥 OPTIONAL: Join company info
+    # 🔥 fetch resume skills
+    resume_analysis = (
+        supabase
+        .table("analysis")
+        .select("skills")
+        .eq("resume_id", resume_id)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    resume_skills = []
+    if resume_analysis.data:
+        resume_skills = resume_analysis.data[0]["skills"] or []
+
+    # 🔥 fetch full job data
     job_ids = [job["id"] for job in match_res.data]
 
     jobs_full = (
@@ -389,4 +404,37 @@ def get_recommended_jobs(
         .execute()
     )
 
-    return jobs_full.data
+    # 🔥 build explanation response
+    recommended = []
+
+    for job in jobs_full.data:
+
+        job_skills = job.get("requirements", []) or []
+
+        matched = [
+            s for s in job_skills
+            if s.lower() in [r.lower() for r in resume_skills]
+        ]
+
+        explanation = None
+        if matched:
+            explanation = (
+                f"Recommended because your resume matches: "
+                f"{', '.join(matched[:3])}"
+            )
+
+        # ⭐ find similarity from match_res
+        similarity = next(
+            (m["similarity"] for m in match_res.data if m["id"] == job["id"]),
+            0.5
+        )
+
+        recommended.append({
+            "id": job["id"],
+            "title": job["title"],
+            "company": job["companies"]["name"] if job.get("companies") else "",
+            "match_score": round((1 - similarity) * 100),
+            "explanation": explanation
+        })
+
+    return recommended
