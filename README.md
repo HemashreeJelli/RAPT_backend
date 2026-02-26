@@ -1,34 +1,30 @@
-⚙️ Backend Architecture & Engineering
-The RAPT backend is built with a focus on performance, modularity, and resource efficiency. It utilizes a distributed micro-services approach to handle intensive AI tasks without compromising the core API's responsiveness.
+# 🏗️ Backend Architecture
 
-1. API Orchestration (FastAPI)
-The central command center is built with FastAPI (Python) and hosted on Render. It handles:
+The backend is engineered as a distributed system designed to handle intensive AI processing while maintaining high availability and low latency.
 
-JWT Authentication: Secure user sessions and Role-Based Access Control (RBAC) to distinguish between candidates and recruiters.
+## 1. API Orchestration (FastAPI)
 
-Request Validation: Strict data validation using Pydantic models to ensure data integrity before database insertion.
+The central command center is built with **FastAPI (Python)** and hosted on **Render**. It acts as the primary gateway for all client interactions.
 
-Service Coordination: Orchestrating the workflow between the primary database and serverless AI functions.
+* **Role-Based Access Control (RBAC):** Implements strict security protocols to restrict sensitive actions, such as job creation and candidate sourcing, exclusively to verified recruiter accounts.
+* **Service Coordination:** Orchestrates the data flow between the primary relational database and specialized serverless AI functions.
+* **Request Validation:** Leverages **Pydantic** for rigorous schema enforcement, ensuring all incoming payloads (resumes and job descriptions) are sanitized and structured correctly before downstream processing.
 
-2. Semantic Engine (Supabase Edge Functions)
-To solve the "Heavy Model" problem (memory constraints on free-tier hosting), RAPT offloads AI processing to the Edge.
+---
 
-GTE-Small Model: We utilize the GTE-small model (General Text Embeddings) to perform self-attention math on job descriptions and resumes.
+## 2. Semantic Engine (Supabase Edge Functions)
 
-High-Dimensional Mapping: Each text input is converted into a 384-dimensional vector, representing its semantic meaning in a mathematical space.
+To optimize resource allocation and minimize cold starts, RAPT offloads computationally heavy AI tasks to the network edge.
 
-Serverless Efficiency: Written in TypeScript (Deno), these functions scale automatically and execute only when a new job or resume is uploaded.
+* **GTE-Small Model:** Utilizes a high-performance, lightweight transformer model to perform text-to-vector embeddings.
+* **Self-Attention Mechanism:** The engine analyzes contextual relationships within the text—for instance, accurately distinguishing "Python" the programming language from "Python" the biological entity.
+* **384-Dimensional Vectors:** Every document is transformed into a high-dimensional vector space, represented by 384 unique numerical coordinates that capture the "latent meaning" of the content.
 
-3. Vector Database (PostgreSQL + pgvector)
-Data is managed in Supabase, utilizing PostgreSQL with the pgvector extension.
+---
 
-Semantic Search: Instead of simple keyword matching, RAPT performs Cosine Similarity calculations to find the mathematical distance between vectors.
+## 3. Vector Database (PostgreSQL + pgvector)
 
-Complex Data Modeling: Handles relational data including profiles, job listings, companies, and nested JSON analysis results.
+Persistent storage and similarity searches are handled within **Supabase** using the **PostgreSQL** ecosystem.
 
-Why this setup?
-Scalability: The Edge Function handles the "heavy lifting," keeping the FastAPI server lightweight and fast.
-
-Cost-Effectiveness: By using GTE-small, we achieve high accuracy with a tiny memory footprint (~70MB), fitting perfectly into serverless environments.
-
-Accuracy: Semantic search allows RAPT to find matches that traditional search would miss (e.g., matching "Backend Developer" with "Python Engineer").
+* **Semantic Matching:** Moving beyond legacy keyword searches, the system utilizes **Cosine Similarity** math to calculate the distance between vectors. This identifies the best candidates based on the "closeness" of their skills to a job's specific requirements.
+* **Hybrid Storage Architecture:** A unified system that manages both structured relational data (user profiles, company metadata) and unstructured vector data, allowing for complex, multi-attribute queries in a single database call.
