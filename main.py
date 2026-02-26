@@ -479,3 +479,61 @@ def get_recommended_jobs(
     )
 
     return recommended
+
+@app.post("/apply/{job_id}")
+def apply_to_job(
+    job_id: str,
+    body: dict,
+    user_id: str = Depends(get_current_user)
+):
+
+    resume_id = body.get("resume_id")
+
+    if not resume_id:
+        raise HTTPException(status_code=400, detail="resume_id required")
+
+    # ⭐ verify resume belongs to user
+    resume_check = (
+        supabase.table("resumes")
+        .select("id")
+        .eq("id", resume_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if not resume_check.data:
+        raise HTTPException(status_code=403, detail="Invalid resume")
+
+    # 🚫 prevent duplicate apply
+    existing = (
+        supabase.table("applications")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("job_id", job_id)
+        .execute()
+    )
+
+    if existing.data:
+        raise HTTPException(status_code=400, detail="Already applied")
+
+    res = supabase.table("applications").insert({
+        "user_id": user_id,
+        "job_id": job_id,
+        "resume_id": resume_id,
+        "status": "applied"
+    }).execute()
+
+    return {"success": True, "data": res.data}
+
+@app.get("/jobs")
+def get_all_jobs(user_id: str = Depends(get_current_user)):
+
+    res = (
+        supabase
+        .table("jobs")
+        .select("*, companies(*)")
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    return res.data
