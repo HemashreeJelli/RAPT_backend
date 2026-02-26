@@ -1,4 +1,4 @@
-# 🚀 RAPT: Resume Analysis & Placement Tracker
+# 🚀 RAPT: Resume Analysis & Tracking Platform
 
 RAPT is a sophisticated AI-powered recruitment platform designed to bridge the gap between job descriptions and candidate resumes. By utilizing **semantic search** and **high-dimensional vector embeddings**, RAPT ensures that recruiters find the best talent based on actual skill relevance rather than just keyword matching.
 
